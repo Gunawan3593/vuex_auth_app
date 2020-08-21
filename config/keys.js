@@ -1,6 +1,6 @@
 if(process.env.NODE_ENV === 'production') {
     module.exports = {
-        mongoURI: "mongodb+srv://admin:admin123@cluster0.xpngn.mongodb.net/app4?retryWrites=true&w=majority",
+        mongoURI: "mongodb+srv://admin:admin123@mongocluster.8tjth.gcp.mongodb.net/app4?retryWrites=true&w=majority",
         secret: 'yoursecret'
     }
 } else {
