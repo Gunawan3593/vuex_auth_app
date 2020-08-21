@@ -30,7 +30,7 @@ app.use(passport.initialize());
 require('./config/passport')(passport);
 
 // Bring in the Database config
-const db = process.env.MONGO_URI; //require('./config/keys').mongoURI;
+const db = require('./config/keys').mongoURI;
 
 mongoose.connect(db, { 
     useNewUrlParser:true 
