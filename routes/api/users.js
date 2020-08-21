@@ -19,11 +19,27 @@ router.post('/register', (req, res) => {
         password,
         confirm_password
     } = req.body
+
+    // Check for empty value
+    if (name == '') {
+        return res.status(400).json({
+            msg: "Name required."
+        });
+    }
+
+    if (username == '') {
+        return res.status(400).json({
+            msg: "Name required."
+        });
+    }
+
+
     if (password !== confirm_password) {
         return res.status(400).json({
             msg: "Password do not match."
         });
     }
+
     // Check for the unique Username
     User.findOne({ 
         username: username 
