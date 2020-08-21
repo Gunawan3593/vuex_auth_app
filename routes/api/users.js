@@ -33,19 +33,6 @@ router.post('/register', (req, res) => {
         });
     }
 
-    if (email == '') {
-        return res.status(400).json({
-            msg: "Email required."
-        });
-    }
-
-
-    if (password !== confirm_password) {
-        return res.status(400).json({
-            msg: "Password do not match."
-        });
-    }
-
     // Check for the unique Username
     User.findOne({ 
         username: username 
@@ -56,6 +43,12 @@ router.post('/register', (req, res) => {
             });
         }
     });
+
+    if (email == '') {
+        return res.status(400).json({
+            msg: "Email required."
+        });
+    }
 
     // Check for the unique Email
     User.findOne({ 
@@ -68,6 +61,12 @@ router.post('/register', (req, res) => {
         }
     });
 
+    if (password !== confirm_password) {
+        return res.status(400).json({
+            msg: "Password do not match."
+        });
+    }
+
     // The data is valid and now we can register the user
     let  newUser = new User({
         name,
@@ -75,6 +74,7 @@ router.post('/register', (req, res) => {
         password,
         email
     });
+
     // Hash the password
     bcrypt.genSalt(10, (err, salt) => {
         bcrypt.hash(newUser.password, salt, (err, hash) => {
