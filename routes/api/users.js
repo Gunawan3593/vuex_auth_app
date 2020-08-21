@@ -29,7 +29,13 @@ router.post('/register', (req, res) => {
 
     if (username == '') {
         return res.status(400).json({
-            msg: "Name required."
+            msg: "Username required."
+        });
+    }
+
+    if (email == '') {
+        return res.status(400).json({
+            msg: "Email required."
         });
     }
 
