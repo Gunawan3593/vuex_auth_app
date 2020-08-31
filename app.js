@@ -33,20 +33,32 @@ require('./config/passport')(passport);
 const db = require('./config/keys').mongoURI;
 
 mongoose.connect(db, { 
-    useNewUrlParser:true 
+    useNewUrlParser:true,
+    useUnifiedTopology: true
 }).then(() => {
     console.log(`Database connected successfully ${db}`)
 }).catch(err => {
     console.log(`Unable to connect with the database ${err}`);
 });
 
-// app.get('/', (req, res) => {
-//     return res.send("<h1>Hello World !!!</h1>");
-// });
-
-// Bring in the users route
+// Bring in the api route
 const users = require('./routes/api/users');
 app.use('/api/users', users);
+
+const suppliers = require('./routes/api/suppliers');
+app.use('/api/suppliers', suppliers);
+
+const customers = require('./routes/api/customers');
+app.use('/api/customers', customers);
+
+const categories = require('./routes/api/categories');
+app.use('/api/categories', categories);
+
+const products = require('./routes/api/products');
+app.use('/api/products', products);
+
+const pucrhaseorders = require('./routes/api/purchase/orders');
+app.use('/api/purchase/orders', pucrhaseorders);
 
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'public/index.html'));

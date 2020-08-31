@@ -7,6 +7,91 @@ const key = require('../../config/keys').secret;
 const User = require('../../model/User');
 
 /**
+ * @route POST api/users/checkuser
+ * @desc Check username exists
+ * @access Public
+ */
+router.post('/checkuser', async (req, res) => {
+    let {
+        username,
+    } = req.body
+    // Check for the unique Username
+    let data = await User.findOne({ 
+        username : username
+    });
+    let response = {};
+    if(data){
+        response = {
+            exists: true,
+            msg: "Username already taken."
+        }
+    }else{
+        response = {
+            exists: false,
+            msg: "Username is available."
+        }
+    }
+    return res.json(response);
+});
+
+/**
+ * @route POST api/users/checkemail
+ * @desc Check Email exists
+ * @access Public
+ */
+router.post('/checkemail', async (req, res) => {
+    let {
+        email,
+    } = req.body
+    // Check for the unique Email
+    let data = await User.findOne({ 
+        email : email
+    });
+    let response = {};
+    if(data){
+        response = {
+            exists: true,
+            msg: "Email already taken."
+        }
+    }else{
+        response = {
+            exists: false,
+            msg: "Email is available."
+        }
+    }
+    return res.json(response);
+});
+
+/**
+ * @route POST api/users/checkupdemail
+ * @desc Check email exists when update data
+ * @access Public
+ */
+router.post('/checkupdemail', async (req, res) => {
+    let {
+        lastemail,
+        email
+    } = req.body
+    // Check for the unique Email
+    let data = await User.findOne({ 
+        email : email
+    });
+    let response = {};
+    if(data.email !== lastemail){
+        response = {
+            exists: true,
+            msg: "Email already taken."
+        }
+    }else{
+        response = {
+            exists: false,
+            msg: "Email is available."
+        }
+    }
+    return res.json(response);
+});
+
+/**
  * @route POST api/users/register
  * @desc Register the user
  * @access Public
@@ -19,47 +104,25 @@ router.post('/register', (req, res) => {
         password,
         confirm_password
     } = req.body
-
+    
     // Check for empty value
     if (name == '') {
         return res.status(400).json({
-            msg: "Name required."
+            msg: "Name is required."
         });
     }
 
     if (username == '') {
         return res.status(400).json({
-            msg: "Username required."
+            msg: "Username is required."
         });
     }
-
-    // Check for the unique Username
-    User.findOne({ 
-        username: username 
-    }).then(user => {
-        if(user) {
-            return res.status(400).json({
-                msg: "Username already taken."
-            });
-        }
-    });
 
     if (email == '') {
         return res.status(400).json({
-            msg: "Email required."
+            msg: "Email is required."
         });
     }
-
-    // Check for the unique Email
-    User.findOne({ 
-        email: email 
-    }).then(user => {
-        if(user) {
-            return res.status(400).json({
-                msg: "Email already taken."
-            });
-        }
-    });
 
     if (password !== confirm_password) {
         return res.status(400).json({
@@ -88,6 +151,72 @@ router.post('/register', (req, res) => {
             });
         });
     });
+});
+/**
+ * @route POST api/users/register
+ * @desc Register the user
+ * @access Public
+ */
+router.post('/updateuser', (req, res) => {
+    let {
+        name,
+        username,
+        email,
+        password,
+        confirm_password
+    } = req.body
+
+    // Check for empty value
+    if (name == '') {
+        return res.status(400).json({
+            msg: "Name is required."
+        });
+    }
+
+    if (username == '') {
+        return res.status(400).json({
+            msg: "Username is required."
+        });
+    }
+
+    if (email == '') {
+        return res.status(400).json({
+            msg: "Email is required."
+        });
+    }
+
+    if (password !== confirm_password) {
+        return res.status(400).json({
+            msg: "Password do not match."
+        });
+    }
+
+    //Hash the password
+    bcrypt.genSalt(10, (err, salt) => {
+        bcrypt.hash(password, salt, (err, hash) => {
+            if (err) throw err;
+            // The data is valid and now we can register the user
+            User.findOne({ 
+                username: username 
+            },function(err, user){
+                if(err) {
+                    throw err;
+                }else{
+                    user.name = name;
+                    user.email = email;
+                    user.password = hash;
+                    user.save().then(user=>{
+                        if(user) {
+                            return res.status(201).json({
+                                success: true,
+                                msg: "Hurry! User is now updated."
+                            });
+                        }
+                    });
+                }
+            });
+        });
+    });   
 });
 /**
  * @route POST api/users/login
