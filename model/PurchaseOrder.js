@@ -1,13 +1,18 @@
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
+const autoIncrement = require('mongoose-auto-increment');
 
 // Create the Purchase Order schema
 const PurchaseOrderSchema = new Schema({
+    autonumber: {
+        type: Number,
+        default: 0
+    },
     no: {
-        type:String,
+        type: String,
         required: true
     },
-    date: {
+    transdate: {
         type: Date,
         required: true
     },
@@ -35,5 +40,7 @@ const PurchaseOrderSchema = new Schema({
         default: Date.now
     },
 });
+
+PurchaseOrderSchema.plugin(autoIncrement.plugin, { model: 'purchaseorders', field: 'autonumber' });
 
 module.exports = PurchaseOrder = mongoose.model('purchaseorders', PurchaseOrderSchema);

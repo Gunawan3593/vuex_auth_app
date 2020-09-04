@@ -4,6 +4,7 @@ const bodyParser = require('body-parser');
 const path = require('path');
 const cors = require('cors');
 const passport = require('passport');
+const autoIncrement = require('mongoose-auto-increment');
 
 
 //initialize the app
@@ -40,6 +41,9 @@ mongoose.connect(db, {
 }).catch(err => {
     console.log(`Unable to connect with the database ${err}`);
 });
+
+//initial mongoose auto increment
+autoIncrement.initialize(mongoose);
 
 // Bring in the api route
 const users = require('./routes/api/users');

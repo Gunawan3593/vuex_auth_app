@@ -1,10 +1,11 @@
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
+const autoIncrement = require('mongoose-auto-increment');
 
 // Create the Purchase Order schema
 const PurchaseOrderItemSchema = new Schema({
-    no: {
-        type:Number,
+    autonumber: {
+        type: Number,
         default: 0
     },
     order: {
@@ -19,10 +20,16 @@ const PurchaseOrderItemSchema = new Schema({
         type: Number,
         default: 0
     },
+    rcv_qty: {
+        type: Number,
+        default: 0
+    },
     cost: {
         type: Number,
         default: 0
     }
 });
+
+PurchaseOrderItemSchema.plugin(autoIncrement.plugin, { model: 'purchaseorderitems', field: 'autonumber' });
 
 module.exports = PurchaseOrderItem = mongoose.model('purchaseorderitems', PurchaseOrderItemSchema);
