@@ -1,18 +1,20 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const router = express.Router();
-const PurchaseOrder = require('../../../model/PurchaseOrder');
+const PurchaseReceipt = require('../../../model/PurchaseReceipt');
+const PurchaseReceiptItem = require('../../../model/PurchaseReceiptItem');
 const PurchaseOrderItem = require('../../../model/PurchaseOrderItem');
+const PurchaseOrder = require('../../../model/PurchaseOrder');
 
 /**
- * @route GET api/purchase/orders/data
+ * @route GET api/purchase/receipts
  * @desc Get data
  * @access Public
  */
 router.get('/data', async (req, res) => {
     let response = {}
     try {
-        let data = await PurchaseOrder.find().populate(['user','supplier']).sort({ autonumber : -1 });
+        let data = await PurchaseReceipt.find().populate(['user','supplier']).sort({ autonumber : -1 });
         if (data) {
             response = {
                 data: data,
@@ -31,40 +33,7 @@ router.get('/data', async (req, res) => {
 });
 
 /**
- * @route GET api/purchase/orders/receivable/:id
- * @desc Get data
- * @access Public
- */
-router.get('/receivable/:id', async (req, res) => {
-    let id = req.params.id;
-    let response = {}
-    if (!mongoose.Types.ObjectId.isValid(id)){
-        response = {
-            success: false,
-            msg: 'Data not found.'
-        };
-    }else{
-        try {
-            let data = await PurchaseOrder.find({  supplier : id }).populate(['user','supplier']);
-            if (data) {
-                response = {
-                    data: data,
-                    success: true,
-                    msg: 'Data load successfully.'
-                };
-            }
-        }catch(err){
-            response = {
-                success: false,
-                msg: `There was an error ${err}.`
-            };
-        }
-    }
-    return res.json(response);
-});
-
-/**
- * @route GET api/purchase/orders/:id
+ * @route GET api/purchase/receipts/:id
  * @desc Get data by id
  * @access Public
  */
@@ -78,7 +47,7 @@ router.get('/data/:id', async (req, res) => {
         };
     }else{
         try {
-            let data = await PurchaseOrder.findOne({  _id : id }).populate(['user','supplier']);
+            let data = await PurchaseReceipt.findOne({  _id : id }).populate(['user','supplier']);
             if (data) {
                 response = {
                     data: data,
@@ -97,7 +66,7 @@ router.get('/data/:id', async (req, res) => {
 });
 
 /**
- * @route GET api/purchase/orders/item
+ * @route GET api/purchase/receipts/item
  * @desc Get data
  * @access Public
  */
@@ -107,7 +76,7 @@ router.post('/item', async (req, res) => {
     } = req.body
     let response = {}
     try {
-        let data = await PurchaseOrderItem.find({ order : order }).populate('product');
+        let data = await PurchaseReceiptItem.find({ order : order }).populate('product');
         if (data) {
             response = {
                 data: data,
@@ -124,9 +93,8 @@ router.post('/item', async (req, res) => {
 
     return res.json(response);
 });
-
 /**
- * @route POST api/pucahse/orders/add
+ * @route POST api/pucahse/receipts/add
  * @desc Add new data
  * @access Public
  */
@@ -135,6 +103,7 @@ router.post('/add', async (req, res) => {
         no,
         transdate,
         supplier,
+        order,
         user,
         notes,
         items
@@ -147,6 +116,12 @@ router.post('/add', async (req, res) => {
         });
     }
 
+    if (order == '') {
+        return res.status(400).json({
+            msg: "Order is required."
+        });
+    }
+
     if (user == '') {
         return res.status(400).json({
             msg: "Login is required."
@@ -155,15 +130,16 @@ router.post('/add', async (req, res) => {
 
     if(items.length == 0) {
         return res.status(400).json({
-            msg: "Order Items are required."
+            msg: "Receipt Items are required."
         });
     }
 
     // The data is valid and now we can register the data
-    let data = new PurchaseOrder({
+    let data = new PurchaseReceipt({
         no,
         transdate,
         supplier,
+        order,
         user,
         notes
     });
@@ -171,18 +147,29 @@ router.post('/add', async (req, res) => {
     let response = {};
     try {
         let header = await data.save();
+        let update =  await PurchaseOrder.findOneAndUpdate({ _id : order },{
+            status : 2
+        },{ new : true });
         items.forEach(item => {
-            PurchaseOrderItem.create({
-                order : header._id,
+            PurchaseReceiptItem.create({
+                receipt : header._id,
+                order_item : item.order_item,
                 product : item.product,
+                order_qty : item.order_qty,
                 qty: item.qty,
                 cost: item.cost
+            });
+            PurchaseOrderItem.find({ _id : item.order_item },function(doc, err){
+                if(!err){
+                    doc.rcv_qty = doc.rcv_qty + item.qty;
+                    doc.save();
+                }
             });
         });
         response = {
             data: data,
             success: true,
-            msg: "Hurry! Purchase Order is now registered."
+            msg: "Hurry! Purchase Receipt is now registered."
         };
     }catch(err) {
         response = {
@@ -194,7 +181,7 @@ router.post('/add', async (req, res) => {
 });
 
 /**
- * @route POST api/pucahse/orders/update
+ * @route POST api/pucahse/receipts/update
  * @desc Update data
  * @access Public
  */
@@ -223,14 +210,14 @@ router.post('/update', async (req, res) => {
 
     if(items.length == 0) {
         return res.status(400).json({
-            msg: "Order Items are required."
+            msg: "Receipt Items are required."
         });
     }
 
     // The data is valid and now we can register the data
     let response = {};
     try {
-        let data =  await PurchaseOrder.findOneAndUpdate({ _id : id },{
+        let data =  await PurchaseReceipt.findOneAndUpdate({ _id : id },{
             transdate: transdate,
             supplier: supplier,
             notes: notes,
@@ -238,9 +225,9 @@ router.post('/update', async (req, res) => {
         },{ new : true });
 
         if(data != undefined) {
-            PurchaseOrderItem.deleteMany({ order : id }, function (err) {});
+            PurchaseReceiptItem.deleteMany({ order : id }, function (err) {});
             items.forEach(item => {
-                PurchaseOrderItem.create({
+                PurchaseReceiptItem.create({
                     order : id,
                     product : item.product,
                     qty: item.qty,
@@ -251,7 +238,7 @@ router.post('/update', async (req, res) => {
         response = {
             data: data,
             success: true,
-            msg: "Hurry! Purchase Order updated successfully."
+            msg: "Hurry! Purchase Receipt updated successfully."
         };
     }catch(err) {
         response = {
@@ -274,13 +261,13 @@ router.post('/void', async (req, res) => {
     // The data is valid and now we can delete the data
     let response = {};
     try {
-        let data =  await PurchaseOrder.findOneAndUpdate({ _id : id },{
+        let data =  await PurchaseReceipt.findOneAndUpdate({ _id : id },{
             status: 3
         },{ new : true });
         if (data) {
             response = {
                 success: true,
-                msg: "Hurry! Order void successfully."
+                msg: "Hurry! Receipt void successfully."
             };
         }
     }catch(err) {
@@ -293,7 +280,7 @@ router.post('/void', async (req, res) => {
 });
 
 /**
- * @route POST api/purchase/orders/getcode
+ * @route POST api/purchase/receipts/getcode
  * @desc Generate code
  * @access Public
  */
@@ -304,22 +291,21 @@ router.get('/getcode', async (req, res) => {
         let date = new Date();
         let month = ("0" + (date.getMonth() + 1)).slice(-2).toString();
         let year = date.getFullYear().toString().substr(-2).toString();
-        // let data =  await PurchaseOrder.findOne().sort({ autonumber : -1 });
-        let data = await PurchaseOrder.aggregate([
+        let data = await PurchaseReceipt.aggregate([
             {$project: {no: 1, autonumber: 1, month: {$month: '$transdate'}, maxVal: { $max: '$autonumber' }}},
             {$match: {month: date.getMonth() + 1}},
             {$sort: {autonumber : -1}}
         ]);
         // Template PO-0920-0001
         let monthyear = month+year;
-        let newcode = 'PO-'+ monthyear + '-0001';
+        let newcode = 'PR-'+ monthyear + '-0001';
         if(data.length > 0) {
             data = Object.assign({}, data);
             let lastno = data[0].no;
             let auto = lastno.substring(lastno.length-4);
             let str =  '' + (parseInt(auto) + 1);
             let lstr = '0000';
-            newcode = 'PO-'+ monthyear + '-' +(lstr+str).substring(str.length);
+            newcode = 'PR-'+ monthyear + '-' +(lstr+str).substring(str.length);
         }
         response = {
                     success: true,

@@ -64,6 +64,9 @@ app.use('/api/products', products);
 const pucrhaseorders = require('./routes/api/purchase/orders');
 app.use('/api/purchase/orders', pucrhaseorders);
 
+const pucrhasereceipts = require('./routes/api/purchase/receipts');
+app.use('/api/purchase/receipts', pucrhasereceipts);
+
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'public/index.html'));
 });
