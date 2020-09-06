@@ -5,6 +5,7 @@ const PurchaseReceipt = require('../../../model/PurchaseReceipt');
 const PurchaseReceiptItem = require('../../../model/PurchaseReceiptItem');
 const PurchaseOrderItem = require('../../../model/PurchaseOrderItem');
 const PurchaseOrder = require('../../../model/PurchaseOrder');
+const Inventory = require('../../../model/Inventory');
 
 /**
  * @route GET api/purchase/receipts
@@ -47,7 +48,7 @@ router.get('/data/:id', async (req, res) => {
         };
     }else{
         try {
-            let data = await PurchaseReceipt.findOne({  _id : id }).populate(['user','supplier']);
+            let data = await PurchaseReceipt.findOne({  _id : id }).populate(['user','supplier','order']);
             if (data) {
                 response = {
                     data: data,
@@ -72,11 +73,11 @@ router.get('/data/:id', async (req, res) => {
  */
 router.post('/item', async (req, res) => {
     let {
-        order
+        receipt
     } = req.body
     let response = {}
     try {
-        let data = await PurchaseReceiptItem.find({ order : order }).populate('product');
+        let data = await PurchaseReceiptItem.find({ receipt : receipt }).populate(['order_item','product']);
         if (data) {
             response = {
                 data: data,
@@ -148,7 +149,7 @@ router.post('/add', async (req, res) => {
     try {
         let header = await data.save();
         let update =  await PurchaseOrder.findOneAndUpdate({ _id : order },{
-            status : 2
+            status : 1
         },{ new : true });
         items.forEach(item => {
             PurchaseReceiptItem.create({
@@ -159,12 +160,13 @@ router.post('/add', async (req, res) => {
                 qty: item.qty,
                 cost: item.cost
             });
-            PurchaseOrderItem.find({ _id : item.order_item },function(doc, err){
+            PurchaseOrderItem.findOne({ _id : item.order_item },function(err, res){
                 if(!err){
-                    doc.rcv_qty = doc.rcv_qty + item.qty;
-                    doc.save();
+                    res.rcv_qty = res.rcv_qty + item.qty;
+                    res.save();
                 }
             });
+            inventoryUpdated(item, true);
         });
         response = {
             data: data,
@@ -180,6 +182,71 @@ router.post('/add', async (req, res) => {
     return res.json(response);
 });
 
+async function reverseQtyItem (id){
+    let response = {};
+    try {
+        let oldItems = await PurchaseReceiptItem.find({ receipt : id });
+        if(oldItems != undefined) {
+            oldItems.forEach(item => {
+                PurchaseOrderItem.updateOne({ _id : item.order_item },{
+                    $inc : { rcv_qty : item.qty * -1 }
+                },function(err){ });
+                inventoryUpdated(item, false);
+            });
+        }
+        response = {
+            success : true,
+            msg: 'Order Item reversed successfully.'
+        };
+    }catch(err){
+        response = {
+            msg: `There was an error.${err}`
+        };
+    }
+
+    return response;
+}
+
+async function inventoryUpdated(data,plus){
+    let response = {};
+    try {
+        let item = await Inventory.findOne({ product : data.product });
+        if(item  !== null) {
+            if(plus) {
+                Inventory.updateOne({ _id : item._id },{
+                    $inc : { qty : data.qty }
+                },function(err){ });
+            }else{
+                Inventory.updateOne({ _id : item._id },{
+                    $inc : { qty : data.qty * -1 }
+                },function(err){ });
+            }
+        }else{
+            if(plus) {
+                Inventory.create({
+                    product : data.product,
+                    qty: data.qty
+                });
+            }else{
+                Inventory.create({
+                    product : data.product,
+                    qty: data.qty * -1
+                });
+            }
+        }
+        response = {
+            success : true,
+            msg: 'Inventory updated successfully.'
+        };
+    }catch(err){
+        response = {
+            msg: `There was an error.${err}`
+        };
+    }
+
+    return response;
+}
+
 /**
  * @route POST api/pucahse/receipts/update
  * @desc Update data
@@ -190,6 +257,7 @@ router.post('/update', async (req, res) => {
         id,
         transdate,
         supplier,
+        order,
         user,
         notes,
         items
@@ -220,19 +288,30 @@ router.post('/update', async (req, res) => {
         let data =  await PurchaseReceipt.findOneAndUpdate({ _id : id },{
             transdate: transdate,
             supplier: supplier,
+            order: order,
             notes: notes,
             user: user
         },{ new : true });
 
         if(data != undefined) {
-            PurchaseReceiptItem.deleteMany({ order : id }, function (err) {});
+            await reverseQtyItem(id);
+            PurchaseReceiptItem.deleteMany({ receipt : id }, function (err) {});
             items.forEach(item => {
                 PurchaseReceiptItem.create({
-                    order : id,
+                    receipt : id,
+                    order_item : item.order_item,
                     product : item.product,
+                    order_qty : item.order_qty,
                     qty: item.qty,
                     cost: item.cost
                 });
+                PurchaseOrderItem.findOne({ _id : item.order_item },function(err, res){
+                    if(!err){
+                        res.rcv_qty = res.rcv_qty + item.qty;
+                        res.save();
+                    }
+                });
+                inventoryUpdated(item,true);
             });
         }
         response = {
@@ -262,7 +341,7 @@ router.post('/void', async (req, res) => {
     let response = {};
     try {
         let data =  await PurchaseReceipt.findOneAndUpdate({ _id : id },{
-            status: 3
+            status: 2
         },{ new : true });
         if (data) {
             response = {
@@ -285,27 +364,26 @@ router.post('/void', async (req, res) => {
  * @access Public
  */
 router.get('/getcode', async (req, res) => {
-    // The data is valid and now we can delete the data
     let response = {};
     try {
         let date = new Date();
+        let code = 'PR';
         let month = ("0" + (date.getMonth() + 1)).slice(-2).toString();
         let year = date.getFullYear().toString().substr(-2).toString();
         let data = await PurchaseReceipt.aggregate([
-            {$project: {no: 1, autonumber: 1, month: {$month: '$transdate'}, maxVal: { $max: '$autonumber' }}},
-            {$match: {month: date.getMonth() + 1}},
+            {$project: {no: 1, autonumber: 1, month: {$month: '$transdate'}, year: {$year: '$transdate'}, maxVal: { $max: '$autonumber' }}},
+            {$match: {month: date.getMonth() + 1, year: date.getFullYear()}},
             {$sort: {autonumber : -1}}
         ]);
-        // Template PO-0920-0001
         let monthyear = month+year;
-        let newcode = 'PR-'+ monthyear + '-0001';
+        let newcode = code + '-' + monthyear + '-0001';
         if(data.length > 0) {
             data = Object.assign({}, data);
             let lastno = data[0].no;
             let auto = lastno.substring(lastno.length-4);
             let str =  '' + (parseInt(auto) + 1);
             let lstr = '0000';
-            newcode = 'PR-'+ monthyear + '-' +(lstr+str).substring(str.length);
+            newcode = code + '-' + monthyear + '-' +(lstr+str).substring(str.length);
         }
         response = {
                     success: true,

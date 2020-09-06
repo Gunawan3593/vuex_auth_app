@@ -3,6 +3,8 @@ const mongoose = require('mongoose');
 const router = express.Router();
 const PurchaseOrder = require('../../../model/PurchaseOrder');
 const PurchaseOrderItem = require('../../../model/PurchaseOrderItem');
+const PurchaseReceipt = require('../../../model/PurchaseReceipt');
+const ObjectId = mongoose.Types.ObjectId;
 
 /**
  * @route GET api/purchase/orders/data
@@ -45,7 +47,32 @@ router.get('/receivable/:id', async (req, res) => {
         };
     }else{
         try {
-            let data = await PurchaseOrder.find({  supplier : id }).populate(['user','supplier']);
+            // let data = await PurchaseOrder.find({  supplier : id }).populate(['user','supplier']);
+            let data = await PurchaseOrderItem.aggregate(
+                [
+                    {
+                        $group:
+                        {
+                            _id: "$order",
+                            qtyReceivable: { $sum: { $subtract : ["$qty","$rcv_qty"]}}
+                        }
+                    },
+                    {
+                        $lookup:
+                        {
+                            from: "purchaseorders",
+                            localField: "_id",
+                            foreignField: "_id",
+                            as: "headers"
+                        }
+                    },
+                    {
+                       $replaceRoot: { newRoot: { $mergeObjects: [ { $arrayElemAt: [ "$headers", 0 ] }, "$$ROOT" ] } }
+                    },
+                    { $project: { headers: 0 } },
+                    { $match : {qtyReceivable : { $gt:0 }, supplier: ObjectId(id), status: { $ne : 3 }}}
+                ]
+            );
             if (data) {
                 response = {
                     data: data,
@@ -271,7 +298,7 @@ router.post('/void', async (req, res) => {
     let {
         id
     } = req.body
-    // The data is valid and now we can delete the data
+    // The data is valid and now we can close the order data
     let response = {};
     try {
         let data =  await PurchaseOrder.findOneAndUpdate({ _id : id },{
@@ -293,33 +320,106 @@ router.post('/void', async (req, res) => {
 });
 
 /**
+ * @route POST api/purchase/order/close
+ * @desc Close order data
+ * @access Publics
+ */
+router.post('/close', async (req, res) => {
+    let {
+        id
+    } = req.body
+    // The data is valid and now we can close the order data
+    let response = {};
+    try {
+        let data =  await PurchaseOrder.findOneAndUpdate({ _id : id },{
+            status: 2
+        },{ new : true });
+
+        data =  await PurchaseReceipt.updateMany({ order : id },{
+            status: 1
+        },function(err){ 
+            console.log(err);
+        });
+
+        if (data) {
+            response = {
+                success: true,
+                msg: "Hurry! Order closed successfully."
+            };
+        }
+    }catch(err) {
+        response = {
+            msg: `There was an error.${err}`
+        };
+    }
+
+    return res.json(response);
+});
+
+/**
+ * @route POST api/purchase/order/open
+ * @desc open close order data
+ * @access Publics
+ */
+router.post('/open', async (req, res) => {
+    let {
+        id
+    } = req.body
+    // The data is valid and now we can open  closed order data
+    let response = {};
+    try {
+        let data =  await PurchaseOrder.findOneAndUpdate({ _id : id },{
+            status: 1
+        },{ new : true });
+
+        data =  await PurchaseReceipt.updateMany({ order : id },{
+            status: 0
+        },function(err){ 
+            console.log(err);
+        });
+
+        if (data) {
+            response = {
+                success: true,
+                msg: "Hurry! Order open successfully."
+            };
+        }
+    }catch(err) {
+        response = {
+            msg: `There was an error.${err}`
+        };
+    }
+
+    return res.json(response);
+});
+
+/**
  * @route POST api/purchase/orders/getcode
  * @desc Generate code
  * @access Public
  */
 router.get('/getcode', async (req, res) => {
-    // The data is valid and now we can delete the data
     let response = {};
     try {
         let date = new Date();
+        let code = 'PO';
         let month = ("0" + (date.getMonth() + 1)).slice(-2).toString();
         let year = date.getFullYear().toString().substr(-2).toString();
         // let data =  await PurchaseOrder.findOne().sort({ autonumber : -1 });
         let data = await PurchaseOrder.aggregate([
-            {$project: {no: 1, autonumber: 1, month: {$month: '$transdate'}, maxVal: { $max: '$autonumber' }}},
-            {$match: {month: date.getMonth() + 1}},
+            {$project: {no: 1, autonumber: 1, month: {$month: '$transdate'}, year: {$year: '$transdate'}, maxVal: { $max: '$autonumber' }}},
+            {$match: {month: date.getMonth() + 1, year: date.getFullYear()}},
             {$sort: {autonumber : -1}}
         ]);
-        // Template PO-0920-0001
         let monthyear = month+year;
-        let newcode = 'PO-'+ monthyear + '-0001';
+        let newcode = code + '-' + monthyear + '-0001';
         if(data.length > 0) {
             data = Object.assign({}, data);
             let lastno = data[0].no;
             let auto = lastno.substring(lastno.length-4);
             let str =  '' + (parseInt(auto) + 1);
             let lstr = '0000';
-            newcode = 'PO-'+ monthyear + '-' +(lstr+str).substring(str.length);
+            newcode = code + '-' + monthyear + '-' +(lstr+str).substring(str.length);
         }
         response = {
                     success: true,
