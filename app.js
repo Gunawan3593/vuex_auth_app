@@ -64,8 +64,11 @@ app.use('/api/products', products);
 const pucrhaseorders = require('./routes/api/purchase/orders');
 app.use('/api/purchase/orders', pucrhaseorders);
 
-const pucrhasereceipts = require('./routes/api/purchase/receipts');
-app.use('/api/purchase/receipts', pucrhasereceipts);
+const purchasereceipts = require('./routes/api/purchase/receipts');
+app.use('/api/purchase/receipts', purchasereceipts);
+
+const purchaseinvoices = require('./routes/api/purchase/invoices');
+app.use('/api/purchase/invoices', purchaseinvoices);
 
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'public/index.html'));

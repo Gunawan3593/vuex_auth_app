@@ -15,7 +15,7 @@ const Inventory = require('../../../model/Inventory');
 router.get('/data', async (req, res) => {
     let response = {}
     try {
-        let data = await PurchaseReceipt.find().populate(['user','supplier']).sort({ autonumber : -1 });
+        let data = await PurchaseReceipt.find().populate(['user','supplier','order']).sort({ autonumber : -1 });
         if (data) {
             response = {
                 data: data,
@@ -248,7 +248,7 @@ async function inventoryUpdated(data,plus){
 }
 
 /**
- * @route POST api/pucahse/receipts/update
+ * @route POST api/puchase/receipts/update
  * @desc Update data
  * @access Public
  */
@@ -329,9 +329,9 @@ router.post('/update', async (req, res) => {
 });
 
 /**
- * @route POST api/purchase/order/void
- * @desc Cancel order data
- * @access Publics
+ * @route POST api/purchase/receipts/void
+ * @desc Cancel receipt data
+ * @access Public
  */
 router.post('/void', async (req, res) => {
     let {
@@ -344,6 +344,7 @@ router.post('/void', async (req, res) => {
             status: 2
         },{ new : true });
         if (data) {
+            await reverseQtyItem(id);
             response = {
                 success: true,
                 msg: "Hurry! Receipt void successfully."
