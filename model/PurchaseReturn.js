@@ -2,8 +2,8 @@ const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
 const autoIncrement = require('mongoose-auto-increment');
 
-// Create the Purchase Invoice schema
-const PurchaseInvoiceSchema = new Schema({
+// Create the Purchase Receipt schema
+const PurchaseReturnSchema = new Schema({
     autonumber: {
         type: Number,
         default: 0
@@ -12,9 +12,9 @@ const PurchaseInvoiceSchema = new Schema({
         type: String,
         required: true
     },
-    order: {
+    invoice: {
         type:mongoose.Schema.Types.ObjectId,
-        ref:'purchaseorders'
+        ref:'purchaseinvoices'
     },
     transdate: {
         type: Date,
@@ -41,6 +41,6 @@ const PurchaseInvoiceSchema = new Schema({
     },
 });
 
-PurchaseInvoiceSchema.plugin(autoIncrement.plugin, { model: 'purchaseinvoices', field: 'autonumber', startAt: 1 });
+PurchaseReturnSchema.plugin(autoIncrement.plugin, { model: 'purchasereturns', field: 'autonumber', startAt: 1 });
 
-module.exports = PurchaseInvoice = mongoose.model('purchaseinvoices', PurchaseInvoiceSchema);
+module.exports = PurchaseReturn = mongoose.model('purchasereturns', PurchaseReturnSchema);

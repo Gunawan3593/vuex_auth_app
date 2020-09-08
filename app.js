@@ -70,6 +70,9 @@ app.use('/api/purchase/receipts', purchasereceipts);
 const purchaseinvoices = require('./routes/api/purchase/invoices');
 app.use('/api/purchase/invoices', purchaseinvoices);
 
+const purchasereturns = require('./routes/api/purchase/returns');
+app.use('/api/purchase/returns', purchasereturns);
+
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'public/index.html'));
 });

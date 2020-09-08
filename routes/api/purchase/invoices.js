@@ -195,6 +195,63 @@ router.get('/data/:id', async (req, res) => {
 });
 
 /**
+ * @route GET api/purchase/invoices/returnable/:id
+ * @desc Get data
+ * @access Public
+ */
+router.get('/returnable/:id', async (req, res) => {
+    let id = req.params.id;
+    let response = {}
+    if (!mongoose.Types.ObjectId.isValid(id)){
+        response = {
+            success: false,
+            msg: 'Data not found.'
+        };
+    }else{
+        try {
+            let data = await PurchaseInvoiceItem.aggregate(
+                [
+                    {
+                        $group:
+                        {
+                            _id: "$invoice",
+                            qtyReturnable: { $sum: { $subtract : ["$qty","$return_qty"]}}
+                        }
+                    },
+                    {
+                        $lookup:
+                        {
+                            from: "purchaseinvoices",
+                            localField: "_id",
+                            foreignField: "_id",
+                            as: "headers"
+                        }
+                    },
+                    {
+                       $replaceRoot: { newRoot: { $mergeObjects: [ { $arrayElemAt: [ "$headers", 0 ] }, "$$ROOT" ] } }
+                    },
+                    { $project: { headers: 0 } },
+                    { $match : {qtyReturnable : { $gt:0 }, supplier: ObjectId(id), status: 1}}
+                ]
+            );
+            if (data) {
+                response = {
+                    data: data,
+                    success: true,
+                    msg: 'Data load successfully.'
+                };
+            }
+        }catch(err){
+            response = {
+                success: false,
+                msg: `There was an error ${err}.`
+            };
+        }
+    }
+    return res.json(response);
+});
+
+/**
  * @route GET api/purchase/invoices/item
  * @desc Get data
  * @access Public
@@ -236,6 +293,10 @@ router.post('/void', async (req, res) => {
     let response = {};
     try {
         let data =  await PurchaseInvoice.findOneAndUpdate({ _id : id },{
+            status: 2
+        },{ new : true });
+
+        let updateorder =  await PurchaseOrder.findOneAndUpdate({ _id : data.order },{
             status: 2
         },{ new : true });
         if (data) {

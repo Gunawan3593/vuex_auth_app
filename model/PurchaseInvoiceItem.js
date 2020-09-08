@@ -32,12 +32,16 @@ const PurchaseInvoiceItemSchema = new Schema({
         type: Number,
         default: 0
     },
+    return_qty: {
+        type: Number,
+        default: 0
+    },
     cost: {
         type: Number,
         default: 0
     }
 });
 
-PurchaseInvoiceItemSchema.plugin(autoIncrement.plugin, { model: 'purchaseinvoiceitems', field: 'autonumber' });
+PurchaseInvoiceItemSchema.plugin(autoIncrement.plugin, { model: 'purchaseinvoiceitems', field: 'autonumber', startAt: 1 });
 
 module.exports = PurchaseInvoiceItem = mongoose.model('purchaseinvoiceitems', PurchaseInvoiceItemSchema);

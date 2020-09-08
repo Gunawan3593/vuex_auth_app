@@ -34,6 +34,6 @@ const PurchaseReceiptItemSchema = new Schema({
     }
 });
 
-PurchaseReceiptItemSchema.plugin(autoIncrement.plugin, { model: 'purchasereceiptitems', field: 'autonumber' });
+PurchaseReceiptItemSchema.plugin(autoIncrement.plugin, { model: 'purchasereceiptitems', field: 'autonumber', startAt: 1 });
 
 module.exports = PurchaseReceiptItem = mongoose.model('purchasereceiptitems', PurchaseReceiptItemSchema);

@@ -37,6 +37,6 @@ const PurchaseOrderSchema = new Schema({
     },
 });
 
-PurchaseOrderSchema.plugin(autoIncrement.plugin, { model: 'purchaseorders', field: 'autonumber' });
+PurchaseOrderSchema.plugin(autoIncrement.plugin, { model: 'purchaseorders', field: 'autonumber', startAt: 1 });
 
 module.exports = PurchaseOrder = mongoose.model('purchaseorders', PurchaseOrderSchema);
