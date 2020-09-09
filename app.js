@@ -73,6 +73,21 @@ app.use('/api/purchase/invoices', purchaseinvoices);
 const purchasereturns = require('./routes/api/purchase/returns');
 app.use('/api/purchase/returns', purchasereturns);
 
+const salesorders = require('./routes/api/sales/orders');
+app.use('/api/sales/orders', salesorders);
+
+const salesdeliveries = require('./routes/api/sales/deliveries');
+app.use('/api/sales/deliveries', salesdeliveries);
+
+const inventories = require('./routes/api/inventories');
+app.use('/api/inventories', inventories);
+
+const salesinvoices = require('./routes/api/sales/invoices');
+app.use('/api/sales/invoices', salesinvoices);
+
+const salesreturns = require('./routes/api/sales/returns');
+app.use('/api/sales/returns', salesreturns);
+
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'public/index.html'));
 });

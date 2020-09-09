@@ -1,20 +1,21 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const router = express.Router();
-const PurchaseReturn = require('../../../model/PurchaseReturn');
-const PurchaseReturnItem = require('../../../model/PurchaseReturnItem');
-const PurchaseInvoiceItem = require('../../../model/PurchaseInvoiceItem');
+const SalesDelivery = require('../../../model/SalesDelivery');
+const SalesDeliveryItem = require('../../../model/SalesDeliveryItem');
+const SalesOrderItem = require('../../../model/SalesOrderItem');
+const SalesOrder = require('../../../model/SalesOrder');
 const Inventory = require('../../../model/Inventory');
 
 /**
- * @route GET api/purchase/returns
+ * @route GET api/sales/deliveries
  * @desc Get data
  * @access Public
  */
 router.get('/data', async (req, res) => {
     let response = {}
     try {
-        let data = await PurchaseReturn.find().populate(['user','supplier','invoice']).sort({ autonumber : -1 });
+        let data = await SalesDelivery.find().populate(['user','customer','order']).sort({ autonumber : -1 });
         if (data) {
             response = {
                 data: data,
@@ -33,7 +34,7 @@ router.get('/data', async (req, res) => {
 });
 
 /**
- * @route GET api/purchase/returns/:id
+ * @route GET api/sales/deliveries/:id
  * @desc Get data by id
  * @access Public
  */
@@ -47,7 +48,7 @@ router.get('/data/:id', async (req, res) => {
         };
     }else{
         try {
-            let data = await PurchaseReturn.findOne({  _id : id }).populate(['user','supplier','invoice']);
+            let data = await SalesDelivery.findOne({  _id : id }).populate(['user','customer','order']);
             if (data) {
                 response = {
                     data: data,
@@ -66,17 +67,17 @@ router.get('/data/:id', async (req, res) => {
 });
 
 /**
- * @route GET api/purchase/returns/item
+ * @route GET api/sales/deliveries/item
  * @desc Get data
  * @access Public
  */
 router.post('/item', async (req, res) => {
     let {
-        returns
+        delivery
     } = req.body
     let response = {}
     try {
-        let data = await PurchaseReturnItem.find({ return : returns }).populate(['invoice_item','product']);
+        let data = await SalesDeliveryItem.find({ delivery : delivery }).populate(['order_item','product']);
         if (data) {
             response = {
                 data: data,
@@ -94,7 +95,7 @@ router.post('/item', async (req, res) => {
     return res.json(response);
 });
 /**
- * @route POST api/pucahse/returns/add
+ * @route POST api/pucahse/deliveries/add
  * @desc Add new data
  * @access Public
  */
@@ -102,21 +103,21 @@ router.post('/add', async (req, res) => {
     let {
         no,
         transdate,
-        supplier,
-        invoice,
+        customer,
+        order,
         user,
         notes,
         items
     } = req.body
     
     // Check for empty value
-    if (supplier == '') {
+    if (customer == '') {
         return res.status(400).json({
-            msg: "Supplier is required."
+            msg: "Customer is required."
         });
     }
 
-    if (invoice == '') {
+    if (order == '') {
         return res.status(400).json({
             msg: "Order is required."
         });
@@ -130,16 +131,16 @@ router.post('/add', async (req, res) => {
 
     if(items.length == 0) {
         return res.status(400).json({
-            msg: "Invoice Items are required."
+            msg: "Delivery Items are required."
         });
     }
 
     // The data is valid and now we can register the data
-    let data = new PurchaseReturn({
+    let data = new SalesDelivery({
         no,
         transdate,
-        supplier,
-        invoice,
+        customer,
+        order,
         user,
         notes
     });
@@ -147,29 +148,30 @@ router.post('/add', async (req, res) => {
     let response = {};
     try {
         let header = await data.save();
+        let update =  await SalesOrder.findOneAndUpdate({ _id : order },{
+            status : 1
+        },{ new : true });
         items.forEach(item => {
-            if(item.qty > 0) {
-                PurchaseReturnItem.create({
-                    return : header._id,
-                    invoice_item : item.invoice_item,
-                    product : item.product,
-                    invoice_qty : item.invoice_qty,
-                    qty: item.qty,
-                    cost: item.cost
-                });
-                PurchaseInvoiceItem.findOne({ _id : item.invoice_item },function(err, res){
-                    if(!err){
-                        res.return_qty = res.return_qty + item.qty;
-                        res.save();
-                    }
-                });
-                inventoryUpdated(item, false);
-            }
+            SalesDeliveryItem.create({
+                delivery : header._id,
+                order_item : item.order_item,
+                product : item.product,
+                order_qty : item.order_qty,
+                qty: item.qty,
+                cost: item.cost
+            });
+            SalesOrderItem.findOne({ _id : item.order_item },function(err, res){
+                if(!err){
+                    res.deliv_qty = res.deliv_qty + item.qty;
+                    res.save();
+                }
+            });
+            inventoryUpdated(item, false);
         });
         response = {
             data: data,
             success: true,
-            msg: "Hurry! Purchase Return is now registered."
+            msg: "Hurry! Sales Delivery is now registered."
         };
     }catch(err) {
         response = {
@@ -183,18 +185,18 @@ router.post('/add', async (req, res) => {
 async function reverseQtyItem (id){
     let response = {};
     try {
-        let oldItems = await PurchaseReturnItem.find({ return : id });
+        let oldItems = await SalesDeliveryItem.find({ delivery : id });
         if(oldItems != undefined) {
             oldItems.forEach(item => {
-                PurchaseInvoiceItem.updateOne({ _id : item.invoice_item },{
-                    $inc : { return_qty : item.qty * -1 }
+                SalesOrderItem.updateOne({ _id : item.order_item },{
+                    $inc : { deliv_qty : item.qty * -1 }
                 },function(err){ });
                 inventoryUpdated(item, true);
             });
         }
         response = {
             success : true,
-            msg: 'Invoice Item reversed successfully.'
+            msg: 'Order Item reversed successfully.'
         };
     }catch(err){
         response = {
@@ -246,7 +248,7 @@ async function inventoryUpdated(data,plus){
 }
 
 /**
- * @route POST api/puchase/returns/update
+ * @route POST api/puchase/deliveries/update
  * @desc Update data
  * @access Public
  */
@@ -254,17 +256,17 @@ router.post('/update', async (req, res) => {
     let {
         id,
         transdate,
-        supplier,
-        invoice,
+        customer,
+        order,
         user,
         notes,
         items
     } = req.body
     
     // Check for empty value
-    if (supplier == '') {
+    if (customer == '') {
         return res.status(400).json({
-            msg: "Supplier is required."
+            msg: "Customer is required."
         });
     }
 
@@ -276,48 +278,46 @@ router.post('/update', async (req, res) => {
 
     if(items.length == 0) {
         return res.status(400).json({
-            msg: "Invoice Items are required."
+            msg: "Delivery Items are required."
         });
     }
 
     // The data is valid and now we can register the data
     let response = {};
     try {
-        let data =  await PurchaseReturn.findOneAndUpdate({ _id : id },{
+        let data =  await SalesDelivery.findOneAndUpdate({ _id : id },{
             transdate: transdate,
-            supplier: supplier,
-            invoice: invoice,
+            customer: customer,
+            order: order,
             notes: notes,
             user: user
         },{ new : true });
 
         if(data != undefined) {
             await reverseQtyItem(id);
-            PurchaseReturnItem.deleteMany({ return : id }, function (err) {});
+            SalesDeliveryItem.deleteMany({ delivery : id }, function (err) {});
             items.forEach(item => {
-                if(item.qty > 0) {
-                    PurchaseReturnItem.create({
-                        return : id,
-                        invoice_item : item.invoice_item,
-                        product : item.product,
-                        invoice_qty : item.invoice_qty,
-                        qty: item.qty,
-                        cost: item.cost
-                    });
-                    PurchaseInvoiceItem.findOne({ _id : item.invoice_item },function(err, res){
-                        if(!err){
-                            res.return_qty = res.return_qty + item.qty;
-                            res.save();
-                        }
-                    });
-                    inventoryUpdated(item, false);
-                }
+                SalesDeliveryItem.create({
+                    delivery : id,
+                    order_item : item.order_item,
+                    product : item.product,
+                    order_qty : item.order_qty,
+                    qty: item.qty,
+                    cost: item.cost
+                });
+                SalesOrderItem.findOne({ _id : item.order_item },function(err, res){
+                    if(!err){
+                        res.deliv_qty = res.deliv_qty + item.qty;
+                        res.save();
+                    }
+                });
+                inventoryUpdated(item,false);
             });
         }
         response = {
             data: data,
             success: true,
-            msg: "Hurry! Purchase Return updated successfully."
+            msg: "Hurry! Sales Delivery updated successfully."
         };
     }catch(err) {
         response = {
@@ -329,8 +329,8 @@ router.post('/update', async (req, res) => {
 });
 
 /**
- * @route POST api/purchase/returns/void
- * @desc Cancel receipt data
+ * @route POST api/sales/deliveries/void
+ * @desc Cancel delivery data
  * @access Public
  */
 router.post('/void', async (req, res) => {
@@ -340,14 +340,20 @@ router.post('/void', async (req, res) => {
     // The data is valid and now we can delete the data
     let response = {};
     try {
-        let data =  await PurchaseReturn.findOneAndUpdate({ _id : id },{
+        let data =  await SalesDelivery.findOneAndUpdate({ _id : id },{
             status: 2
         },{ new : true });
         if (data) {
+            let anyDelivered = await checkOrderDelivered(data.order);
+            if(!anyDelivered.status){
+                let updateorder =  await SalesOrder.findOneAndUpdate({ _id : data.order },{
+                    status: 0
+                },{ new : true });
+            }
             await reverseQtyItem(id);
             response = {
                 success: true,
-                msg: "Hurry! Return void successfully."
+                msg: "Hurry! Delivery void successfully."
             };
         }
     }catch(err) {
@@ -360,69 +366,7 @@ router.post('/void', async (req, res) => {
 });
 
 /**
- * @route POST api/purchase/returns/close
- * @desc Close return data
- * @access Publics
- */
-router.post('/close', async (req, res) => {
-    let {
-        id
-    } = req.body
-    // The data is valid and now we can close the order data
-    let response = {};
-    try {
-        let data =  await PurchaseReturn.findOneAndUpdate({ _id : id },{
-            status: 1
-        },{ new : true });
-
-        if (data) {
-            response = {
-                success: true,
-                msg: "Hurry! Return closed successfully."
-            };
-        }
-    }catch(err) {
-        response = {
-            msg: `There was an error.${err}`
-        };
-    }
-
-    return res.json(response);
-});
-
-/**
- * @route POST api/purchase/retruns/open
- * @desc open closed return data
- * @access Publics
- */
-router.post('/open', async (req, res) => {
-    let {
-        id
-    } = req.body
-    // The data is valid and now we can open  closed order data
-    let response = {};
-    try {
-        let data =  await PurchaseReturn.findOneAndUpdate({ _id : id },{
-            status: 0
-        },{ new : true });
-
-        if (data) {
-            response = {
-                success: true,
-                msg: "Hurry! Return open successfully."
-            };
-        }
-    }catch(err) {
-        response = {
-            msg: `There was an error.${err}`
-        };
-    }
-
-    return res.json(response);
-});
-
-/**
- * @route POST api/purchase/returns/getcode
+ * @route POST api/sales/deliveries/getcode
  * @desc Generate code
  * @access Public
  */
@@ -430,10 +374,10 @@ router.get('/getcode', async (req, res) => {
     let response = {};
     try {
         let date = new Date();
-        let code = 'RT';
+        let code = 'SD';
         let month = ("0" + (date.getMonth() + 1)).slice(-2).toString();
         let year = date.getFullYear().toString().substr(-2).toString();
-        let data = await PurchaseReturn.aggregate([
+        let data = await SalesDelivery.aggregate([
             {$project: {no: 1, autonumber: 1, month: {$month: '$transdate'}, year: {$year: '$transdate'}, maxVal: { $max: '$autonumber' }}},
             {$match: {month: date.getMonth() + 1, year: date.getFullYear()}},
             {$sort: {autonumber : -1}}
@@ -461,5 +405,25 @@ router.get('/getcode', async (req, res) => {
 
     return res.json(response);
 });
+
+async function checkOrderDelivered(id){
+    let response = {
+        status : false
+    }
+    try {
+        let data = await SalesDelivery.findOne({ order : id, status : { $ne : 2 } });
+        if(data !== null) {
+            response = {
+                status : true
+            }
+        }
+    } catch (err) {
+        response = {
+            msg: `There was an error.${err}`
+        };
+    }
+    return response;
+}
+
 
 module.exports = router;
