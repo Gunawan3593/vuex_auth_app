@@ -34,7 +34,7 @@ router.get('/data', async (req, res) => {
 
 /**
  * @route GET api/sales/orders/delivable/:id
- * @desc Get data
+ * @desc Get data order deliverable by Order 
  * @access Public
  */
 router.get('/delivable/:id', async (req, res) => {
@@ -47,7 +47,6 @@ router.get('/delivable/:id', async (req, res) => {
         };
     }else{
         try {
-            // let data = await SalesOrder.find({  customer : id }).populate(['user','customer']);
             let data = await SalesOrderItem.aggregate(
                 [
                     {
@@ -86,6 +85,56 @@ router.get('/delivable/:id', async (req, res) => {
                 msg: `There was an error ${err}.`
             };
         }
+    }
+    return res.json(response);
+});
+
+
+/**
+ * @route GET api/sales/orders/delivable/byproduct
+ * @desc Get data order deliverable by Product 
+ * @access Public
+ */
+router.get('/delivbyproduct', async (req, res) => {
+    let response = {};
+    try {
+        let data = await SalesOrderItem.aggregate(
+            [
+                {
+                    $lookup:
+                    {
+                        from: "salesorders",
+                        localField: "order",
+                        foreignField: "_id",
+                        as: "headers"
+                    }
+                },
+                {
+                    $replaceRoot: { newRoot: { $mergeObjects: [ { $arrayElemAt: [ "$headers", 0 ] }, "$$ROOT" ] } }
+                },
+                { $project: { headers: 0 } },
+                {
+                    $group:
+                    {
+                        _id: "$product",
+                        qtyDelivable: { $sum: { $subtract : ["$qty","$deliv_qty"]}}
+                    }
+                },
+                { $match : {qtyDelivable : { $gt:0 }, status: { $ne : 3 }}}
+            ]
+        );
+        if (data) {
+            response = {
+                data: data,
+                success: true,
+                msg: 'Data load successfully.'
+            };
+        }
+    }catch(err){
+        response = {
+            success: false,
+            msg: `There was an error ${err}.`
+        };
     }
     return res.json(response);
 });
@@ -203,7 +252,7 @@ router.post('/add', async (req, res) => {
                 order : header._id,
                 product : item.product,
                 qty: item.qty,
-                cost: item.cost
+                price: item.price
             });
         });
         response = {
@@ -271,7 +320,7 @@ router.post('/update', async (req, res) => {
                     order : id,
                     product : item.product,
                     qty: item.qty,
-                    cost: item.cost
+                    price: item.price
                 });
             });
         }

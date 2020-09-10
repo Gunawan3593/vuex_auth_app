@@ -155,7 +155,7 @@ router.post('/add', async (req, res) => {
                     product : item.product,
                     invoice_qty : item.invoice_qty,
                     qty: item.qty,
-                    cost: item.cost
+                    price: item.price
                 });
                 SalesInvoiceItem.findOne({ _id : item.invoice_item },function(err, res){
                     if(!err){
@@ -302,7 +302,7 @@ router.post('/update', async (req, res) => {
                         product : item.product,
                         invoice_qty : item.invoice_qty,
                         qty: item.qty,
-                        cost: item.cost
+                        price: item.price
                     });
                     SalesInvoiceItem.findOne({ _id : item.invoice_item },function(err, res){
                         if(!err){

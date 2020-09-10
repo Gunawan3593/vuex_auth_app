@@ -115,7 +115,7 @@ router.post('/generate', async (req, res) => {
                 order_qty : item.order_qty,
                 deliv_qty : item.deliv_qty,
                 qty: item.qty,
-                cost: item.cost
+                price: item.price
             });
         });
         let update =  await SalesOrder.findOneAndUpdate({ _id : order },{

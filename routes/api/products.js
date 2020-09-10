@@ -10,7 +10,7 @@ const Product = require('../../model/Product');
 router.get('/', async (req, res) => {
     let response = {}
     try {
-        let data = await Product.find().populate('user','category');
+        let data = await Product.find().populate(['user','category']);
         if (data) {
             response = {
                 data: data,

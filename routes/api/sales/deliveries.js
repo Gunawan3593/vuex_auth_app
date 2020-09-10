@@ -158,7 +158,7 @@ router.post('/add', async (req, res) => {
                 product : item.product,
                 order_qty : item.order_qty,
                 qty: item.qty,
-                cost: item.cost
+                price: item.price
             });
             SalesOrderItem.findOne({ _id : item.order_item },function(err, res){
                 if(!err){
@@ -303,7 +303,7 @@ router.post('/update', async (req, res) => {
                     product : item.product,
                     order_qty : item.order_qty,
                     qty: item.qty,
-                    cost: item.cost
+                    price: item.price
                 });
                 SalesOrderItem.findOne({ _id : item.order_item },function(err, res){
                     if(!err){

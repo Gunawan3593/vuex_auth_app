@@ -38,5 +38,28 @@ router.get('/checkstock/:id', async (req, res) => {
     return res.json(response);
 });
 
+/**
+ * @route GET api/inventories/data
+ * @desc get data inventory
+ * @access Public
+ */
+router.get('/data', async (req, res) => {
+    try {
+        let data = await Inventory.find();
+        response = {
+            data : data,
+            success: true,
+            msg: 'Data load successfully.'
+        };
+
+    } catch (err) {
+        response = {
+            success: false,
+            msg: `There was an error ${err}.`
+        };
+    }
+    return res.json(response);
+});
+
 
 module.exports = router;
