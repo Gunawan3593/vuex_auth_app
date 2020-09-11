@@ -69,7 +69,7 @@ router.get('/delivable/:id', async (req, res) => {
                        $replaceRoot: { newRoot: { $mergeObjects: [ { $arrayElemAt: [ "$headers", 0 ] }, "$$ROOT" ] } }
                     },
                     { $project: { headers: 0 } },
-                    { $match : {qtyDelivable : { $gt:0 }, customer: ObjectId(id), status: { $ne : 3 }}}
+                    { $match : {qtyDelivable : { $gt:0 }, customer: ObjectId(id), status: { $in : [0,1] } }}
                 ]
             );
             if (data) {
@@ -91,7 +91,7 @@ router.get('/delivable/:id', async (req, res) => {
 
 
 /**
- * @route GET api/sales/orders/delivable/byproduct
+ * @route GET api/sales/orders/delivbyproduct
  * @desc Get data order deliverable by Product 
  * @access Public
  */
@@ -130,6 +130,60 @@ router.get('/delivbyproduct', async (req, res) => {
                 msg: 'Data load successfully.'
             };
         }
+    }catch(err){
+        response = {
+            success: false,
+            msg: `There was an error ${err}.`
+        };
+    }
+    return res.json(response);
+});
+
+/**
+ * @route GET api/sales/orders/orderbymonth
+ * @desc Get data order by month
+ * @access Public
+ */
+router.get('/orderbymonth/:month/:year', async (req, res) => {
+    let month = parseInt(req.params.month);
+    let year = parseInt(req.params.year);
+    let response = {};
+    try {
+        let data = await SalesOrderItem.aggregate(
+            [
+                {
+                    $lookup:
+                    {
+                        from: "salesorders",
+                        localField: "order",
+                        foreignField: "_id",
+                        as: "headers"
+                    }
+                },
+                {
+                    $replaceRoot: { newRoot: { $mergeObjects: [ { $arrayElemAt: [ "$headers", 0 ] }, "$$ROOT" ] } }
+                },
+                { $project: { headers: 0 } },
+                { $project: {transdate:1, qty:1, price:1, status:1, year: {$year: '$transdate'}, month: {$month: "$transdate"}}},
+                { $match : {year: year, month: month, status: { $ne : 3 } }},
+                {
+                    $group:
+                    {
+                        _id: month,
+                        total: { $sum: { $multiply : ["$qty","$price"]}}
+                    }
+                }
+            ]
+        );
+        let total = 0;
+        data.forEach(row => {
+            total += row.total;
+        });
+        response = {
+            total: total,
+            success: true,
+            msg: 'Data load successfully.'
+        };
     }catch(err){
         response = {
             success: false,
@@ -458,7 +512,8 @@ router.get('/getcode', async (req, res) => {
         let data = await SalesOrder.aggregate([
             {$project: {no: 1, autonumber: 1, month: {$month: '$transdate'}, year: {$year: '$transdate'}, maxVal: { $max: '$autonumber' }}},
             {$match: {month: date.getMonth() + 1, year: date.getFullYear()}},
-            {$sort: {autonumber : -1}}
+            {$sort: {autonumber : -1}},
+            { $limit : 1 }
         ]);
         let monthyear = month+year;
         let newcode = code + '-' + monthyear + '-0001';

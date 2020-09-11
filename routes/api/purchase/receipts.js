@@ -380,7 +380,8 @@ router.get('/getcode', async (req, res) => {
         let data = await PurchaseReceipt.aggregate([
             {$project: {no: 1, autonumber: 1, month: {$month: '$transdate'}, year: {$year: '$transdate'}, maxVal: { $max: '$autonumber' }}},
             {$match: {month: date.getMonth() + 1, year: date.getFullYear()}},
-            {$sort: {autonumber : -1}}
+            {$sort: {autonumber : -1}},
+            { $limit : 1 }
         ]);
         let monthyear = month+year;
         let newcode = code + '-' + monthyear + '-0001';

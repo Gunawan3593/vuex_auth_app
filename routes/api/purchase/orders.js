@@ -70,7 +70,7 @@ router.get('/receivable/:id', async (req, res) => {
                        $replaceRoot: { newRoot: { $mergeObjects: [ { $arrayElemAt: [ "$headers", 0 ] }, "$$ROOT" ] } }
                     },
                     { $project: { headers: 0 } },
-                    { $match : {qtyReceivable : { $gt:0 }, supplier: ObjectId(id), status: { $ne : 3 }}}
+                    { $match : {qtyReceivable : { $gt:0 }, supplier: ObjectId(id), status: { $in : [0,1] }}}
                 ]
             );
             if (data) {
@@ -409,7 +409,8 @@ router.get('/getcode', async (req, res) => {
         let data = await PurchaseOrder.aggregate([
             {$project: {no: 1, autonumber: 1, month: {$month: '$transdate'}, year: {$year: '$transdate'}, maxVal: { $max: '$autonumber' }}},
             {$match: {month: date.getMonth() + 1, year: date.getFullYear()}},
-            {$sort: {autonumber : -1}}
+            {$sort: {autonumber : -1}},
+            { $limit : 1 }
         ]);
         let monthyear = month+year;
         let newcode = code + '-' + monthyear + '-0001';

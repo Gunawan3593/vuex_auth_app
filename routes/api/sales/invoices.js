@@ -16,7 +16,8 @@ async function getCode() {
         let data = await SalesInvoice.aggregate([
             {$project: {no: 1, autonumber: 1, month: {$month: '$transdate'}, year: {$year: '$transdate'}, maxVal: { $max: '$autonumber' }}},
             {$match: {month: date.getMonth() + 1, year: date.getFullYear()}},
-            {$sort: {autonumber : -1}}
+            {$sort: {autonumber : -1}},
+            { $limit : 1 }
         ]);
         let monthyear = month+year;
         let newcode = code + '-' + monthyear + '-0001';
@@ -373,6 +374,184 @@ router.post('/open', async (req, res) => {
         };
     }
 
+    return res.json(response);
+});
+
+/**
+ * @route GET api/sales/invoices/salesbymonth
+ * @desc Get data sales by month
+ * @access Public
+ */
+router.get('/salesbymonth/:month/:year', async (req, res) => {
+    let month = parseInt(req.params.month);
+    let year = parseInt(req.params.year);
+    let response = {};
+    try {
+        let data = await SalesInvoiceItem.aggregate(
+            [
+                {
+                    $lookup:
+                    {
+                        from: "salesinvoices",
+                        localField: "invoice",
+                        foreignField: "_id",
+                        as: "headers"
+                    }
+                },
+                {
+                    $replaceRoot: { newRoot: { $mergeObjects: [ { $arrayElemAt: [ "$headers", 0 ] }, "$$ROOT" ] } }
+                },
+                { $project: { headers: 0 } },
+                { $project: {transdate:1, qty:1, price:1, status:1, year: {$year: '$transdate'}, month: {$month: "$transdate"}}},
+                { $match : {year: year, month: month, status: 1 }},
+                {
+                    $group:
+                    {
+                        _id: month,
+                        total: { $sum: { $multiply : ["$qty","$price"]}}
+                    }
+                }
+            ]
+        );
+        let total = 0;
+        data.forEach(row => {
+            total += row.total;
+        });
+        response = {
+            total: total,
+            success: true,
+            msg: 'Data load successfully.'
+        };
+    }catch(err){
+        response = {
+            success: false,
+            msg: `There was an error ${err}.`
+        };
+    }
+    return res.json(response);
+});
+
+
+/**
+ * @route GET api/sales/invoices/topsellproduct
+ * @desc Get data top sell product by month
+ * @access Public
+ */
+router.get('/topsellproduct/:month/:year', async (req, res) => {
+    let month = parseInt(req.params.month);
+    let year = parseInt(req.params.year);
+    let response = {};
+    try {
+        let data = await SalesInvoiceItem.aggregate(
+            [
+                {
+                    $lookup:
+                    {
+                        from: "salesinvoices",
+                        localField: "invoice",
+                        foreignField: "_id",
+                        as: "headers"
+                    }
+                },
+                {
+                    $replaceRoot: { newRoot: { $mergeObjects: [ { $arrayElemAt: [ "$headers", 0 ] }, "$$ROOT" ] } }
+                },
+                { $project: { headers: 0 } },
+                { $project: {transdate:1, qty:1, price:1, status:1, product:1, year: {$year: '$transdate'}, month: {$month: "$transdate"}}},
+                { $match : {year: year, month: month, status: 1 }},
+                {
+                    $group:
+                    {
+                        _id: '$product',
+                        total: { $sum: { $multiply : ["$qty","$price"]}}
+
+                    }
+                },
+                { $sort : { total : -1 }},
+                { $limit : 1 },
+                {
+                    $lookup:
+                    {
+                        from: "products",
+                        localField: "_id",
+                        foreignField: "_id",
+                        as: "products"
+                    }
+                },
+                {
+                    $replaceRoot: { newRoot: { $mergeObjects: [ { $arrayElemAt: [ "$products", 0 ] }, "$$ROOT" ] } }
+                },
+                { $project: { products: 0 } },
+            ]
+        );
+        let product = {
+            name : '-',
+            total : 0
+        };
+        data.forEach(row => {
+            product.name = row.name,
+            product.total = row.total
+        });
+        response = {
+            product: product,
+            success: true,
+            msg: 'Data load successfully.'
+        };
+    }catch(err){
+        response = {
+            success: false,
+            msg: `There was an error ${err}.`
+        };
+    }
+    return res.json(response);
+});
+
+/**
+ * @route GET api/sales/invoices/salesbytime
+ * @desc Get data sales by time
+ * @access Public
+ */
+router.get('/salesbytime/:date', async (req, res) => {
+    let date = req.params.date;
+    let response = {};
+    try {
+        let data = await SalesInvoiceItem.aggregate(
+            [
+                {
+                    $lookup:
+                    {
+                        from: "salesinvoices",
+                        localField: "invoice",
+                        foreignField: "_id",
+                        as: "headers"
+                    }
+                },
+                {
+                    $replaceRoot: { newRoot: { $mergeObjects: [ { $arrayElemAt: [ "$headers", 0 ] }, "$$ROOT" ] } }
+                },
+                { $project: { headers: 0 } },
+                { $project: {transdate:1, date: {$dateToString: { format: "%Y-%m-%d", date: "$date"}}, qty:1, price:1, status:1, year: {$year: '$transdate'}, month: {$month: "$transdate"}}},
+                { $match : { date: date, status: 1 }},
+                {
+                    $group:
+                    {
+                        _id: {$dateToString: { format: "%H%M", date: "$transdate",timezone: "+08:00"}},
+                        total: { $sum: { $multiply : ["$qty","$price"]}}
+                    }
+                }
+            ]
+        );
+        response = {
+            data: data,
+            success: true,
+            msg: 'Data load successfully.'
+        };
+    }catch(err){
+        response = {
+            success: false,
+            msg: `There was an error ${err}.`
+        };
+    }
     return res.json(response);
 });
 
