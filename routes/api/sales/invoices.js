@@ -555,4 +555,99 @@ router.get('/salesbytime/:date', async (req, res) => {
     return res.json(response);
 });
 
+function getMonday(date) {
+    var day = date.getDay() || 7;  
+    if( day !== 1 ) 
+        date.setHours(-24 * (day - 1)); 
+    return date;
+}
+
+/**
+ * @route GET api/sales/invoices/salesotw
+ * @desc Get data daily sales
+ * @access Public
+ */
+router.get('/salesotw/:date', async (req, res) => {
+    let date = new Date(req.params.date);
+    let response = {};
+    try {
+        let monday = getMonday(date);
+        let sunday = new Date();
+        sunday.setDate(monday.getDate()+6);
+        monday = monday.toISOString().slice(0,10);
+        sunday = sunday.toISOString().slice(0,10);
+        let data = await SalesInvoiceItem.aggregate(
+            [
+                {
+                    $lookup:
+                    {
+                        from: "salesinvoices",
+                        localField: "invoice",
+                        foreignField: "_id",
+                        as: "headers"
+                    }
+                },
+                {
+                    $replaceRoot: { newRoot: { $mergeObjects: [ { $arrayElemAt: [ "$headers", 0 ] }, "$$ROOT" ] } }
+                },
+                { $project: { headers: 0 } },
+                { $project: {transdate:1, date: {$dateToString: { format: "%Y-%m-%d", date: "$transdate"}}, qty:1, price:1, status:1, year: {$year: '$transdate'}, month: {$month: "$transdate"}}},
+                { $match : { date: { $gte : monday, $lte : sunday }, status: 1 }},
+                {
+                    $group:
+                    {
+                        _id: { $isoDayOfWeek : "$transdate" },
+                        total: { $sum: { $multiply : ["$qty","$price"]}}
+                    }
+                }
+            ]
+        );
+        response = {
+            data: data,
+            success: true,
+            msg: 'Data load successfully.'
+        };
+    }catch(err){
+        response = {
+            success: false,
+            msg: `There was an error ${err}.`
+        };
+    }
+    return res.json(response);
+});
+
+/**
+ * @route GET api/sales/invoices/lastupdatesales
+ * @desc Get data last update sales
+ * @access Public
+ */
+router.get('/lastupdatesales', async (req, res) => {
+    let response = {};
+    try {
+        let data = await SalesInvoice.aggregate(
+            [
+                { $project: { transdate:1, status:1, strDate: {$dateToString: { format: "%Y-%m-%d %H:%M:%S", date: "$transdate"}}, }},
+                { $match : { status: 1 }},
+                { $sort : { strDate : -1 }},
+                { $limit : 1 }
+            ]
+        );
+        let date = new Date();
+        data.forEach(row => {
+            date = row.transdate;
+        })
+        response = {
+            date: date,
+            success: true,
+            msg: 'Data load successfully.'
+        };
+    }catch(err){
+        response = {
+            success: false,
+            msg: `There was an error ${err}.`
+        };
+    }
+    return res.json(response);
+});
+
 module.exports = router;
