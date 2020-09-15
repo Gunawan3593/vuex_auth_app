@@ -535,7 +535,7 @@ router.get('/salesbytime/:date', async (req, res) => {
                 {
                     $group:
                     {
-                        _id: {$dateToString: { format: "%H%M", date: "$transdate",timezone: "+08:00"}},
+                        _id: {$dateToString: { format: "%H00", date: "$transdate",timezone: "+08:00"}},
                         total: { $sum: { $multiply : ["$qty","$price"]}}
                     }
                 }
