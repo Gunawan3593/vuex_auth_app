@@ -123,7 +123,7 @@ router.post('/add', async (req, res) => {
         });
     }
 
-    if (user == '') {
+    if (user == undefined) {
         return res.status(400).json({
             msg: "Login is required."
         });
@@ -270,7 +270,7 @@ router.post('/update', async (req, res) => {
         });
     }
 
-    if (user == '') {
+    if (user == undefined) {
         return res.status(400).json({
             msg: "Login is required."
         });
