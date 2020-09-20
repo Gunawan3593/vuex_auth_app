@@ -116,7 +116,9 @@ router.post('/generate', async (req, res) => {
                 order_qty : item.order_qty,
                 deliv_qty : item.deliv_qty,
                 qty: item.qty,
-                price: item.price
+                price: item.price,
+                no: item.no,
+                cost: item.cost
             });
         });
         let update =  await SalesOrder.findOneAndUpdate({ _id : order },{
@@ -402,13 +404,67 @@ router.get('/salesbymonth/:month/:year', async (req, res) => {
                     $replaceRoot: { newRoot: { $mergeObjects: [ { $arrayElemAt: [ "$headers", 0 ] }, "$$ROOT" ] } }
                 },
                 { $project: { headers: 0 } },
-                { $project: {transdate:1, qty:1, price:1, status:1, year: {$year: '$transdate'}, month: {$month: "$transdate"}}},
+                { $project: {transdate:1, qty:1, return_qty:1, price:1, status:1, year: {$year: '$transdate'}, month: {$month: "$transdate"}}},
                 { $match : {year: year, month: month, status: 1 }},
                 {
                     $group:
                     {
                         _id: month,
-                        total: { $sum: { $multiply : ["$qty","$price"]}}
+                        total: { $sum: { $multiply : [{ $subtract :["$qty","$return_qty"] },"$price"]}}
+                    }
+                }
+            ]
+        );
+        let total = 0;
+        data.forEach(row => {
+            total += row.total;
+        });
+        response = {
+            total: total,
+            success: true,
+            msg: 'Data load successfully.'
+        };
+    }catch(err){
+        response = {
+            success: false,
+            msg: `There was an error ${err}.`
+        };
+    }
+    return res.json(response);
+});
+
+/**
+ * @route GET api/sales/invoices/profitbymonth
+ * @desc Get data profit sales by month
+ * @access Public
+ */
+router.get('/profitbymonth/:month/:year', async (req, res) => {
+    let month = parseInt(req.params.month);
+    let year = parseInt(req.params.year);
+    let response = {};
+    try {
+        let data = await SalesInvoiceItem.aggregate(
+            [
+                {
+                    $lookup:
+                    {
+                        from: "salesinvoices",
+                        localField: "invoice",
+                        foreignField: "_id",
+                        as: "headers"
+                    }
+                },
+                {
+                    $replaceRoot: { newRoot: { $mergeObjects: [ { $arrayElemAt: [ "$headers", 0 ] }, "$$ROOT" ] } }
+                },
+                { $project: { headers: 0 } },
+                { $project: {transdate:1, qty:1, return_qty:1, cost:1, price:1, status:1, year: {$year: '$transdate'}, month: {$month: "$transdate"}}},
+                { $match : {year: year, month: month, status: 1 }},
+                {
+                    $group:
+                    {
+                        _id: month,
+                        total: { $sum: { $multiply : [{ $subtract :["$qty","$return_qty"] },{ $subtract :["$price","$cost"] }]}}
                     }
                 }
             ]
@@ -457,13 +513,13 @@ router.get('/topsellproduct/:month/:year', async (req, res) => {
                     $replaceRoot: { newRoot: { $mergeObjects: [ { $arrayElemAt: [ "$headers", 0 ] }, "$$ROOT" ] } }
                 },
                 { $project: { headers: 0 } },
-                { $project: {transdate:1, qty:1, price:1, status:1, product:1, year: {$year: '$transdate'}, month: {$month: "$transdate"}}},
+                { $project: {transdate:1, qty:1, return_qty:1, price:1, status:1, product:1, year: {$year: '$transdate'}, month: {$month: "$transdate"}}},
                 { $match : {year: year, month: month, status: 1 }},
                 {
                     $group:
                     {
                         _id: '$product',
-                        total: { $sum: { $multiply : ["$qty","$price"]}}
+                        total: { $sum: { $multiply : [{ $subtract :["$qty","$return_qty"] },"$price"]}}
 
                     }
                 },
@@ -530,13 +586,13 @@ router.get('/salesbytime/:date', async (req, res) => {
                     $replaceRoot: { newRoot: { $mergeObjects: [ { $arrayElemAt: [ "$headers", 0 ] }, "$$ROOT" ] } }
                 },
                 { $project: { headers: 0 } },
-                { $project: {transdate:1, date: {$dateToString: { format: "%Y-%m-%d", date: "$date"}}, qty:1, price:1, status:1, year: {$year: '$transdate'}, month: {$month: "$transdate"}}},
+                { $project: {transdate:1, date: {$dateToString: { format: "%Y-%m-%d", date: "$date"}}, qty:1, return_qty:1, price:1, status:1, year: {$year: '$transdate'}, month: {$month: "$transdate"}}},
                 { $match : { date: date, status: 1 }},
                 {
                     $group:
                     {
                         _id: {$dateToString: { format: "%H00", date: "$transdate",timezone: "+08:00"}},
-                        total: { $sum: { $multiply : ["$qty","$price"]}}
+                        total: { $sum: { $multiply : [{ $subtract :["$qty","$return_qty"] },"$price"]}}
                     }
                 }
             ]
@@ -591,13 +647,13 @@ router.get('/salesotw/:date', async (req, res) => {
                     $replaceRoot: { newRoot: { $mergeObjects: [ { $arrayElemAt: [ "$headers", 0 ] }, "$$ROOT" ] } }
                 },
                 { $project: { headers: 0 } },
-                { $project: {transdate:1, date: {$dateToString: { format: "%Y-%m-%d", date: "$transdate"}}, qty:1, price:1, status:1, year: {$year: '$transdate'}, month: {$month: "$transdate"}}},
+                { $project: {transdate:1, date: {$dateToString: { format: "%Y-%m-%d", date: "$transdate"}}, qty:1, return_qty:1, price:1, status:1, year: {$year: '$transdate'}, month: {$month: "$transdate"}}},
                 { $match : { date: { $gte : monday, $lte : sunday }, status: 1 }},
                 {
                     $group:
                     {
                         _id: { $isoDayOfWeek : "$transdate" },
-                        total: { $sum: { $multiply : ["$qty","$price"]}}
+                        total: { $sum: { $multiply : [{ $subtract :["$qty","$return_qty"] },"$price"]}}
                     }
                 }
             ]

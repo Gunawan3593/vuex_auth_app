@@ -4,6 +4,10 @@ const autoIncrement = require('mongoose-auto-increment');
 
 // Create the Sales Invoice Item schema
 const SalesInvoiceItemSchema = new Schema({
+    no: {
+        type: Number,
+        default: 0
+    },
     autonumber: {
         type: Number,
         default: 0
@@ -33,6 +37,10 @@ const SalesInvoiceItemSchema = new Schema({
         default: 0
     },
     return_qty: {
+        type: Number,
+        default: 0
+    },
+    cost: {
         type: Number,
         default: 0
     },

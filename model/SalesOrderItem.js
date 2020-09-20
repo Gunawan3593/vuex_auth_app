@@ -8,6 +8,10 @@ const SalesOrderItemSchema = new Schema({
         type: Number,
         default: 0
     },
+    no: {
+        type: Number,
+        default: 0
+    },
     order: {
         type:mongoose.Schema.Types.ObjectId,
         ref:'salesorders'
@@ -21,6 +25,10 @@ const SalesOrderItemSchema = new Schema({
         default: 0
     },
     deliv_qty: {
+        type: Number,
+        default: 0
+    },
+    cost: {
         type: Number,
         default: 0
     },

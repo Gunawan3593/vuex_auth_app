@@ -306,7 +306,9 @@ router.post('/add', async (req, res) => {
                 order : header._id,
                 product : item.product,
                 qty: item.qty,
-                price: item.price
+                price: item.price,
+                cost: item.cost,
+                no: item.no
             });
         });
         response = {
@@ -374,7 +376,9 @@ router.post('/update', async (req, res) => {
                     order : id,
                     product : item.product,
                     qty: item.qty,
-                    price: item.price
+                    price: item.price,
+                    cost: item.cost,
+                    no: item.no
                 });
             });
         }
