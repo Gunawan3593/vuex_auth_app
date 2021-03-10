@@ -11,6 +11,10 @@ const InventorySchema = new Schema({
         type: Number,
         default: 0
     },
+    cost: {
+        type: Number,
+        default: 0
+    },
     date: {
         type: Date,
         default: Date.now

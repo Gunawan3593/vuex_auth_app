@@ -83,7 +83,7 @@ router.post('/generate', async (req, res) => {
         });
     }
 
-    if (user == '') {
+    if (user == undefined) {
         return res.status(400).json({
             msg: "Login is required."
         });

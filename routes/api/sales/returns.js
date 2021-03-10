@@ -122,7 +122,7 @@ router.post('/add', async (req, res) => {
         });
     }
 
-    if (user == '') {
+    if (user == undefined) {
         return res.status(400).json({
             msg: "Login is required."
         });
@@ -155,7 +155,9 @@ router.post('/add', async (req, res) => {
                     product : item.product,
                     invoice_qty : item.invoice_qty,
                     qty: item.qty,
-                    price: item.price
+                    price: item.price,
+                    no: item.no,
+                    cost: item.cost
                 });
                 SalesInvoiceItem.findOne({ _id : item.invoice_item },function(err, res){
                     if(!err){
@@ -208,7 +210,7 @@ async function reverseQtyItem (id){
 async function inventoryUpdated(data,plus){
     let response = {};
     try {
-        let item = await Inventory.findOne({ product : data.product });
+        let item = await Inventory.findOne({ product : data.product, cost : data.cost });
         if(item  !== null) {
             if(plus) {
                 Inventory.updateOne({ _id : item._id },{
@@ -223,12 +225,14 @@ async function inventoryUpdated(data,plus){
             if(plus) {
                 Inventory.create({
                     product : data.product,
-                    qty: data.qty
+                    qty: data.qty,
+                    cost: data.cost
                 });
             }else{
                 Inventory.create({
                     product : data.product,
-                    qty: data.qty * -1
+                    qty: data.qty * -1,
+                    cost: data.cost
                 });
             }
         }
@@ -268,7 +272,7 @@ router.post('/update', async (req, res) => {
         });
     }
 
-    if (user == '') {
+    if (user == undefined) {
         return res.status(400).json({
             msg: "Login is required."
         });
@@ -302,7 +306,9 @@ router.post('/update', async (req, res) => {
                         product : item.product,
                         invoice_qty : item.invoice_qty,
                         qty: item.qty,
-                        price: item.price
+                        price: item.price,
+                        no: item.no,
+                        cost: item.cost
                     });
                     SalesInvoiceItem.findOne({ _id : item.invoice_item },function(err, res){
                         if(!err){
