@@ -6,7 +6,6 @@ const cors = require('cors');
 const passport = require('passport');
 const autoIncrement = require('mongoose-auto-increment');
 
-
 //initialize the app
 const app = express();
 
